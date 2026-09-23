@@ -5,9 +5,13 @@ import (
 	"context"
 	"errors"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/lp/campus-market/internal/util"
 	"gorm.io/gorm"
 )
+
+// mysqlDuplicateEntryCode is MySQL's ER_DUP_ENTRY error number (1062).
+const mysqlDuplicateEntryCode = 1062
 
 // txKey is the context key under which an in-flight transaction lives.
 type txKey struct{}
@@ -35,13 +39,18 @@ func Transaction(ctx context.Context, database *gorm.DB, fn func(txCtx context.C
 	})
 }
 
-// normalizeError converts GORM errors into sentinel repository errors.
+// normalizeError converts GORM/driver errors into sentinel errors shared by
+// the service layer.
 func normalizeError(err error) error {
 	if err == nil {
 		return nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return util.ErrNotFound
+	}
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == mysqlDuplicateEntryCode {
+		return gorm.ErrDuplicatedKey
 	}
 	return err
 }

@@ -61,10 +61,53 @@ func (f *fakeProductRepo) UpdateStatus(_ context.Context, id uint, status string
 	return nil
 }
 
+func (f *fakeProductRepo) UpdatePrice(_ context.Context, id uint, price float64) error {
+	if _, err := f.FindByID(context.Background(), id); err != nil {
+		return err
+	}
+	f.products[id].Price = price
+	return nil
+}
+
+func (f *fakeProductRepo) ListByIDs(_ context.Context, ids []uint) ([]model.Product, error) {
+	var out []model.Product
+	for _, id := range ids {
+		if p, ok := f.products[id]; ok {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeProductRepo) ListBySeller(_ context.Context, sellerID uint) ([]model.Product, error) {
+	var out []model.Product
+	for _, p := range f.products {
+		if p.SellerID == sellerID {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeProductRepo) Transaction(_ context.Context, fn func(txCtx context.Context) error) error {
+	return fn(context.Background())
+}
+
 func (f *fakeProductRepo) Count(context.Context) (int64, error) { return int64(len(f.products)), nil }
 
+// fakeFavoriteCounter is an empty FavoriteCounter for product-service tests.
+type fakeFavoriteCounter struct{}
+
+func (fakeFavoriteCounter) FavoriteCountByProducts(_ context.Context, _ []uint) (map[uint]int64, error) {
+	return map[uint]int64{}, nil
+}
+
+func newProductSvc(repo *fakeProductRepo) *ProductService {
+	return NewProductService(repo, fakeFavoriteCounter{}, slog.Default())
+}
+
 func TestProductServiceCreate(t *testing.T) {
-	svc := NewProductService(newFakeProductRepo(), slog.Default())
+	svc := newProductSvc(newFakeProductRepo())
 	tests := []struct {
 		name     string
 		category string
@@ -90,7 +133,7 @@ func TestProductServiceCreate(t *testing.T) {
 
 func TestProductServiceRemoveOwnership(t *testing.T) {
 	repo := newFakeProductRepo()
-	svc := NewProductService(repo, slog.Default())
+	svc := newProductSvc(repo)
 	created, _ := svc.Create(context.Background(), 1, &dto.CreateProductRequest{Title: "我的书", Price: 10, Category: constants.ProductCategoryBooks, Condition: "全新", Campus: "东校区", TradeLocation: "东门"})
 	if _, err := svc.Remove(context.Background(), 99, created.ID); err == nil {
 		t.Fatalf("expected forbidden error for non-owner")

@@ -10,11 +10,18 @@
       <span>{{ categoryLabel(product.category) }}</span>
       <span>{{ product.campus }}</span>
       <span>{{ product.condition }}</span>
+      <span class="fav-count">⭐ {{ product.favorite_count ?? 0 }}人收藏</span>
     </div>
     <div class="product-actions">
       <el-button size="small" @click="$emit('detail', product)">详情</el-button>
       <el-button v-if="!hideBuy" size="small" type="primary" :disabled="product.status !== 'on_sale'" @click="$emit('buy', product)">购买</el-button>
       <el-button v-if="showChat" size="small" @click="$emit('chat', product)">私信</el-button>
+      <el-button
+        v-if="showFavorite"
+        size="small"
+        :type="favorited ? 'warning' : 'default'"
+        @click="$emit('favorite', product)"
+      >{{ favorited ? '★ 已收藏' : '☆ 收藏' }}</el-button>
     </div>
   </el-card>
 </template>
@@ -23,8 +30,18 @@
 import type { Product } from '../../types'
 import { categoryLabel, productStatusLabel, productStatusType } from '../../constants/product'
 
-withDefaults(defineProps<{ product: Product; hideBuy?: boolean; showChat?: boolean }>(), { hideBuy: false, showChat: false })
-defineEmits<{ (e: 'detail', p: Product): void; (e: 'buy', p: Product): void; (e: 'chat', p: Product): void }>()
+withDefaults(defineProps<{ product: Product; hideBuy?: boolean; showChat?: boolean; showFavorite?: boolean; favorited?: boolean }>(), {
+  hideBuy: false,
+  showChat: false,
+  showFavorite: false,
+  favorited: false,
+})
+defineEmits<{
+  (e: 'detail', p: Product): void
+  (e: 'buy', p: Product): void
+  (e: 'chat', p: Product): void
+  (e: 'favorite', p: Product): void
+}>()
 </script>
 
 <style scoped>
@@ -60,5 +77,14 @@ defineEmits<{ (e: 'detail', p: Product): void; (e: 'buy', p: Product): void; (e:
   font-size: 12px;
   color: #606266;
   margin: 8px 0;
+  flex-wrap: wrap;
+}
+.fav-count {
+  color: #e6a23c;
+}
+.product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 </style>

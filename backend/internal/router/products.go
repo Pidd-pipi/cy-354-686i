@@ -6,7 +6,7 @@ import (
 )
 
 // RegisterProductRoutes registers product endpoints.
-func RegisterProductRoutes(g *gin.RouterGroup, h *handler.ProductHandler, auth, apiLimiter gin.HandlerFunc) {
+func RegisterProductRoutes(g *gin.RouterGroup, h *handler.ProductHandler, favH *handler.FavoriteHandler, auth, apiLimiter gin.HandlerFunc) {
 	products := g.Group("/products")
 	{
 		products.GET("", apiLimiter, h.List)
@@ -16,6 +16,9 @@ func RegisterProductRoutes(g *gin.RouterGroup, h *handler.ProductHandler, auth, 
 		{
 			authed.POST("", apiLimiter, h.Create)
 			authed.DELETE("/:id", apiLimiter, h.Remove)
+			authed.PUT("/:id/price", apiLimiter, favH.UpdatePrice)
+			authed.POST("/:id/favorite", apiLimiter, favH.Add)
+			authed.DELETE("/:id/favorite", apiLimiter, favH.Remove)
 		}
 	}
 }

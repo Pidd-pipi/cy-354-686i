@@ -19,7 +19,16 @@
     </el-form>
     <el-row :gutter="16">
       <el-col v-for="p in products" :key="p.id" :span="6" class="col">
-        <ProductCard :product="p" @detail="showDetail" @buy="buy" @chat="chat" />
+        <ProductCard
+          :product="p"
+          show-chat
+          show-favorite
+          :favorited="isFavorite(p.id)"
+          @detail="showDetail"
+          @buy="buy"
+          @chat="chat"
+          @favorite="toggleFav"
+        />
       </el-col>
     </el-row>
     <el-empty v-if="!loading && products.length === 0" description="暂无商品" />
@@ -31,6 +40,7 @@
         <el-descriptions-item label="交易地点">{{ current.trade_location }}</el-descriptions-item>
         <el-descriptions-item label="价格">¥{{ current.price.toFixed(2) }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ productStatusLabel(current.status) }}</el-descriptions-item>
+        <el-descriptions-item label="收藏人数">⭐ {{ current.favorite_count ?? 0 }}</el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">{{ current.description }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
@@ -43,6 +53,7 @@ import { ElMessage } from 'element-plus'
 import ProductCard from '../components/common/ProductCard.vue'
 import { PRODUCT_CATEGORIES, categoryLabel, productStatusLabel } from '../constants/product'
 import { useProducts } from '../hooks/useProducts'
+import { useFavorites } from '../hooks/useFavorites'
 import { createTradeOrder } from '../api/tradeOrder'
 import { createConversation } from '../api/conversation'
 import type { Product } from '../types'
@@ -50,6 +61,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useRouter } from 'vue-router'
 
 const { products, loading, load } = useProducts()
+const { isFavorite, toggleFavorite, loadFavoriteIds } = useFavorites()
 const query = reactive<{ category?: string; campus?: string; keyword?: string }>({})
 const detailVisible = ref(false)
 const current = ref<Product | null>(null)
@@ -59,6 +71,18 @@ const router = useRouter()
 function showDetail(p: Product) {
   current.value = p
   detailVisible.value = true
+}
+
+async function toggleFav(p: Product) {
+  if (!authStore.token) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  const nowFav = await toggleFavorite(p.id)
+  if (p.favorite_count === undefined) p.favorite_count = 0
+  p.favorite_count += nowFav ? 1 : -1
+  ElMessage.success(nowFav ? '已加入收藏' : '已取消收藏')
 }
 
 async function buy(p: Product) {
@@ -82,7 +106,10 @@ async function chat(p: Product) {
   router.push('/messages')
 }
 
-onMounted(() => load())
+onMounted(() => {
+  load()
+  loadFavoriteIds()
+})
 </script>
 
 <style scoped>

@@ -26,6 +26,33 @@ export interface Product {
   images: string
   status: string
   created_at: string
+  favorite_count?: number
+}
+
+export interface FavoriteProduct {
+  product_id: number
+  title: string
+  description: string
+  price: number
+  category: string
+  condition: string
+  campus: string
+  trade_location: string
+  images: string
+  status: string
+  purchasable: boolean
+  favorite_count: number
+  favorited_at: string
+}
+
+export interface PriceAlert {
+  id: number
+  product_id: number
+  old_price: number
+  new_price: number
+  read: boolean
+  created_at: string
+  product?: FavoriteProduct
 }
 
 export interface Conversation {

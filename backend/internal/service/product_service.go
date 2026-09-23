@@ -16,19 +16,28 @@ type ProductRepository interface {
 	Create(ctx context.Context, p *model.Product) error
 	FindByID(ctx context.Context, id uint) (*model.Product, error)
 	List(ctx context.Context, category, campus, keyword, status string, page, pageSize int) ([]model.Product, int64, error)
+	ListByIDs(ctx context.Context, ids []uint) ([]model.Product, error)
+	ListBySeller(ctx context.Context, sellerID uint) ([]model.Product, error)
 	UpdateStatus(ctx context.Context, id uint, status string) error
+	UpdatePrice(ctx context.Context, id uint, price float64) error
 	Count(ctx context.Context) (int64, error)
+}
+
+// FavoriteCounter provides favorite counts for products (read-only side).
+type FavoriteCounter interface {
+	FavoriteCountByProducts(ctx context.Context, productIDs []uint) (map[uint]int64, error)
 }
 
 // ProductService manages second-hand product publishing and lifecycle.
 type ProductService struct {
-	products ProductRepository
-	logger   *slog.Logger
+	products  ProductRepository
+	favorites FavoriteCounter
+	logger    *slog.Logger
 }
 
 // NewProductService wires the product service dependencies.
-func NewProductService(products ProductRepository, logger *slog.Logger) *ProductService {
-	return &ProductService{products: products, logger: logger}
+func NewProductService(products ProductRepository, favorites FavoriteCounter, logger *slog.Logger) *ProductService {
+	return &ProductService{products: products, favorites: favorites, logger: logger}
 }
 
 // Create publishes a new product.
@@ -50,23 +59,39 @@ func (s *ProductService) Create(ctx context.Context, sellerID uint, req *dto.Cre
 	return p, nil
 }
 
-// Get returns one product.
-func (s *ProductService) Get(ctx context.Context, id uint) (*model.Product, error) {
+// Get returns one product with its favorite count.
+func (s *ProductService) Get(ctx context.Context, id uint) (*dto.ProductWithFavoriteCount, error) {
 	p, err := s.products.FindByID(ctx, id)
 	if err != nil {
 		return nil, util.WrapAppError(fmt.Errorf("product[id=%d] get: %w", id, err), 404, constants.CodeNotFound, constants.MsgNotFound)
 	}
-	return p, nil
+	counts, err := s.favorites.FavoriteCountByProducts(ctx, []uint{id})
+	if err != nil {
+		return nil, util.WrapAppError(fmt.Errorf("product[id=%d] favorite count: %w", id, err), 500, constants.CodeInternalError, constants.MsgInternalError)
+	}
+	return &dto.ProductWithFavoriteCount{Product: *p, FavoriteCount: counts[id]}, nil
 }
 
-// List filters products.
+// List filters products and attaches each product's favorite count.
 func (s *ProductService) List(ctx context.Context, q *dto.ListProductQuery) (*dto.PageResult, error) {
 	q.Normalize()
 	items, total, err := s.products.List(ctx, q.Category, q.Campus, q.Keyword, q.Status, q.Page, q.PageSize)
 	if err != nil {
 		return nil, util.WrapAppError(fmt.Errorf("product list: %w", err), 500, constants.CodeInternalError, constants.MsgInternalError)
 	}
-	return &dto.PageResult{Items: items, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
+	ids := make([]uint, 0, len(items))
+	for i := range items {
+		ids = append(ids, items[i].ID)
+	}
+	counts, err := s.favorites.FavoriteCountByProducts(ctx, ids)
+	if err != nil {
+		return nil, util.WrapAppError(fmt.Errorf("product list favorite counts: %w", err), 500, constants.CodeInternalError, constants.MsgInternalError)
+	}
+	views := make([]*dto.ProductWithFavoriteCount, 0, len(items))
+	for i := range items {
+		views = append(views, &dto.ProductWithFavoriteCount{Product: items[i], FavoriteCount: counts[items[i].ID]})
+	}
+	return &dto.PageResult{Items: views, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
 }
 
 // Remove lets the seller take down a product.

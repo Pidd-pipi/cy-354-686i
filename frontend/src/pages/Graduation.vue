@@ -4,7 +4,14 @@
     <el-alert title="毕业季专场：学长学姐闲置好物集中放送" type="warning" :closable="false" class="banner" />
     <el-row :gutter="16">
       <el-col v-for="p in products" :key="p.id" :span="6" class="col">
-        <ProductCard :product="p" @detail="showDetail" @buy="buy" />
+        <ProductCard
+          :product="p"
+          show-favorite
+          :favorited="isFavorite(p.id)"
+          @detail="showDetail"
+          @buy="buy"
+          @favorite="toggleFav"
+        />
       </el-col>
     </el-row>
     <el-empty v-if="!loading && products.length === 0" description="专场暂无商品" />
@@ -14,6 +21,7 @@
         <el-descriptions-item label="成色">{{ current.condition }}</el-descriptions-item>
         <el-descriptions-item label="校区">{{ current.campus }}</el-descriptions-item>
         <el-descriptions-item label="价格">¥{{ current.price.toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="收藏人数">⭐ {{ current.favorite_count ?? 0 }}</el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">{{ current.description }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
@@ -26,6 +34,7 @@ import { ElMessage } from 'element-plus'
 import ProductCard from '../components/common/ProductCard.vue'
 import { listGraduation } from '../api/product'
 import { createTradeOrder } from '../api/tradeOrder'
+import { useFavorites } from '../hooks/useFavorites'
 import { categoryLabel } from '../constants/product'
 import type { Product } from '../types'
 import { useAuthStore } from '../stores/authStore'
@@ -37,10 +46,23 @@ const detailVisible = ref(false)
 const current = ref<Product | null>(null)
 const authStore = useAuthStore()
 const router = useRouter()
+const { isFavorite, toggleFavorite, loadFavoriteIds } = useFavorites()
 
 function showDetail(p: Product) {
   current.value = p
   detailVisible.value = true
+}
+
+async function toggleFav(p: Product) {
+  if (!authStore.token) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  const nowFav = await toggleFavorite(p.id)
+  if (p.favorite_count === undefined) p.favorite_count = 0
+  p.favorite_count += nowFav ? 1 : -1
+  ElMessage.success(nowFav ? '已加入收藏' : '已取消收藏')
 }
 
 async function buy(p: Product) {
@@ -58,6 +80,7 @@ onMounted(async () => {
   try {
     const res = await listGraduation()
     products.value = res.data.items
+    loadFavoriteIds()
   } finally {
     loading.value = false
   }

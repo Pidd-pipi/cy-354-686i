@@ -36,12 +36,15 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from './stores/authStore'
+import { useFavorites } from './hooks/useFavorites'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const { reset: resetFavorites } = useFavorites()
 
 function logout() {
   authStore.logout()
+  resetFavorites()
   ElMessage.success('已退出登录')
   router.push('/products')
 }

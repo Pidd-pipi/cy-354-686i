@@ -18,6 +18,11 @@ func NewProductRepository(db *gorm.DB) *ProductRepository {
 	return &ProductRepository{db: db}
 }
 
+// Transaction runs fn inside a GORM transaction for cross-repository writes.
+func (r *ProductRepository) Transaction(ctx context.Context, fn func(txCtx context.Context) error) error {
+	return Transaction(ctx, r.db, fn)
+}
+
 // Create inserts a new product.
 func (r *ProductRepository) Create(ctx context.Context, p *model.Product) error {
 	return db(ctx, r.db).Create(p).Error
@@ -58,6 +63,35 @@ func (r *ProductRepository) List(ctx context.Context, category, campus, keyword,
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+// ListByIDs returns products matching the given ids (order is not guaranteed).
+func (r *ProductRepository) ListByIDs(ctx context.Context, ids []uint) ([]model.Product, error) {
+	var items []model.Product
+	if len(ids) == 0 {
+		return items, nil
+	}
+	err := db(ctx, r.db).Where("id IN ?", ids).Find(&items).Error
+	return items, err
+}
+
+// ListBySeller returns a seller's products, newest first.
+func (r *ProductRepository) ListBySeller(ctx context.Context, sellerID uint) ([]model.Product, error) {
+	var items []model.Product
+	err := db(ctx, r.db).Where("seller_id = ?", sellerID).Order("created_at DESC").Find(&items).Error
+	return items, err
+}
+
+// UpdatePrice sets a new price for a product.
+func (r *ProductRepository) UpdatePrice(ctx context.Context, id uint, price float64) error {
+	res := db(ctx, r.db).Model(&model.Product{}).Where("id = ?", id).Update("price", price)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return util.ErrNotFound
+	}
+	return nil
 }
 
 // UpdateStatus sets the product status.
