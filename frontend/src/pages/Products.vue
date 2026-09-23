@@ -19,7 +19,16 @@
     </el-form>
     <el-row :gutter="16">
       <el-col v-for="p in products" :key="p.id" :span="6" class="col">
-        <ProductCard :product="p" @detail="showDetail" @buy="buy" @chat="chat" />
+        <ProductCard
+          :product="p"
+          show-chat
+          :show-favorite="!!authStore.token"
+          :favorited="favoriteStore.has(p.id)"
+          @detail="showDetail"
+          @buy="buy"
+          @chat="chat"
+          @favorite="toggleFavorite"
+        />
       </el-col>
     </el-row>
     <el-empty v-if="!loading && products.length === 0" description="暂无商品" />
@@ -31,6 +40,7 @@
         <el-descriptions-item label="交易地点">{{ current.trade_location }}</el-descriptions-item>
         <el-descriptions-item label="价格">¥{{ current.price.toFixed(2) }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ productStatusLabel(current.status) }}</el-descriptions-item>
+        <el-descriptions-item label="收藏人数">{{ current.favorite_count ?? 0 }}</el-descriptions-item>
         <el-descriptions-item label="描述" :span="2">{{ current.description }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
@@ -47,6 +57,7 @@ import { createTradeOrder } from '../api/tradeOrder'
 import { createConversation } from '../api/conversation'
 import type { Product } from '../types'
 import { useAuthStore } from '../stores/authStore'
+import { useFavoriteStore } from '../stores/favoriteStore'
 import { useRouter } from 'vue-router'
 
 const { products, loading, load } = useProducts()
@@ -54,6 +65,7 @@ const query = reactive<{ category?: string; campus?: string; keyword?: string }>
 const detailVisible = ref(false)
 const current = ref<Product | null>(null)
 const authStore = useAuthStore()
+const favoriteStore = useFavoriteStore()
 const router = useRouter()
 
 function showDetail(p: Product) {
@@ -82,7 +94,32 @@ async function chat(p: Product) {
   router.push('/messages')
 }
 
-onMounted(() => load())
+async function toggleFavorite(p: Product) {
+  if (!authStore.token) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  const wasFav = favoriteStore.has(p.id)
+  try {
+    await favoriteStore.toggle(p.id)
+    favoriteStore.applyDelta(products.value, p.id, wasFav ? -1 : 1)
+    ElMessage.success(wasFav ? '已取消收藏' : '已收藏，降价会提醒你')
+  } catch {
+    // error toast handled by request interceptor
+  }
+}
+
+onMounted(async () => {
+  await load()
+  if (authStore.token) {
+    try {
+      await favoriteStore.hydrate()
+    } catch {
+      // ignore hydration failure on the plaza
+    }
+  }
+})
 </script>
 
 <style scoped>

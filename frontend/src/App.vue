@@ -12,7 +12,10 @@
         <el-menu-item index="/orders">我的交易</el-menu-item>
         <el-menu-item index="/book-exchange">书籍交换</el-menu-item>
         <el-menu-item index="/graduation">毕业季专场</el-menu-item>
-        <el-menu-item index="/profile">个人中心</el-menu-item>
+        <el-menu-item index="/profile">
+          个人中心
+          <el-badge v-if="alertStore.unreadCount > 0" :value="alertStore.unreadCount" class="nav-badge" />
+        </el-menu-item>
       </el-menu>
       <div class="header-right">
         <template v-if="authStore.token">
@@ -32,23 +35,42 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from './stores/authStore'
+import { useFavoriteStore } from './stores/favoriteStore'
+import { usePriceAlertStore } from './stores/priceAlertStore'
 
 const authStore = useAuthStore()
+const favoriteStore = useFavoriteStore()
+const alertStore = usePriceAlertStore()
 const router = useRouter()
 
 function logout() {
   authStore.logout()
+  favoriteStore.reset()
+  alertStore.reset()
   ElMessage.success('已退出登录')
   router.push('/products')
 }
 
 onMounted(() => {
   authStore.restore()
+  if (authStore.token) {
+    alertStore.refreshUnreadCount().catch(() => undefined)
+  }
 })
+
+// Refresh the unread badge when a user logs in from the login page.
+watch(
+  () => authStore.token,
+  (token) => {
+    if (token) {
+      alertStore.refreshUnreadCount().catch(() => undefined)
+    }
+  },
+)
 </script>
 
 <style>
@@ -101,5 +123,9 @@ body {
   width: 100%;
   margin: 0 auto;
   padding: 24px;
+}
+.nav-badge {
+  margin-left: 6px;
+  margin-right: 4px;
 }
 </style>

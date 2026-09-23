@@ -11,9 +11,16 @@
       <span>{{ product.campus }}</span>
       <span>{{ product.condition }}</span>
     </div>
+    <div class="product-fav" v-if="showFavorite">
+      <el-button size="small" :type="favorited ? 'danger' : 'default'" :plain="!favorited" @click="$emit('favorite', product)">
+        {{ favorited ? '❤️ 已收藏' : '🤍 收藏' }} {{ product.favorite_count ?? 0 }}
+      </el-button>
+    </div>
     <div class="product-actions">
       <el-button size="small" @click="$emit('detail', product)">详情</el-button>
-      <el-button v-if="!hideBuy" size="small" type="primary" :disabled="product.status !== 'on_sale'" @click="$emit('buy', product)">购买</el-button>
+      <el-button v-if="!hideBuy" size="small" type="primary" :disabled="product.status !== 'on_sale'" @click="$emit('buy', product)">
+        {{ product.status === 'on_sale' ? '购买' : '不可购买' }}
+      </el-button>
       <el-button v-if="showChat" size="small" @click="$emit('chat', product)">私信</el-button>
     </div>
   </el-card>
@@ -23,8 +30,22 @@
 import type { Product } from '../../types'
 import { categoryLabel, productStatusLabel, productStatusType } from '../../constants/product'
 
-withDefaults(defineProps<{ product: Product; hideBuy?: boolean; showChat?: boolean }>(), { hideBuy: false, showChat: false })
-defineEmits<{ (e: 'detail', p: Product): void; (e: 'buy', p: Product): void; (e: 'chat', p: Product): void }>()
+withDefaults(
+  defineProps<{
+    product: Product
+    hideBuy?: boolean
+    showChat?: boolean
+    showFavorite?: boolean
+    favorited?: boolean
+  }>(),
+  { hideBuy: false, showChat: false, showFavorite: false, favorited: false },
+)
+defineEmits<{
+  (e: 'detail', p: Product): void
+  (e: 'buy', p: Product): void
+  (e: 'chat', p: Product): void
+  (e: 'favorite', p: Product): void
+}>()
 </script>
 
 <style scoped>
@@ -60,5 +81,8 @@ defineEmits<{ (e: 'detail', p: Product): void; (e: 'buy', p: Product): void; (e:
   font-size: 12px;
   color: #606266;
   margin: 8px 0;
+}
+.product-fav {
+  margin-bottom: 8px;
 }
 </style>

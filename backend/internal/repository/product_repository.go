@@ -33,9 +33,12 @@ func (r *ProductRepository) FindByID(ctx context.Context, id uint) (*model.Produ
 	return &p, nil
 }
 
-// List filters products by category/campus/keyword/status with pagination.
-func (r *ProductRepository) List(ctx context.Context, category, campus, keyword, status string, page, pageSize int) ([]model.Product, int64, error) {
+// List filters products by seller/category/campus/keyword/status with pagination.
+func (r *ProductRepository) List(ctx context.Context, sellerID uint, category, campus, keyword, status string, page, pageSize int) ([]model.Product, int64, error) {
 	q := db(ctx, r.db).Model(&model.Product{})
+	if sellerID > 0 {
+		q = q.Where("seller_id = ?", sellerID)
+	}
 	if category != "" {
 		q = q.Where("category = ?", category)
 	}
@@ -70,6 +73,36 @@ func (r *ProductRepository) UpdateStatus(ctx context.Context, id uint, status st
 		return util.ErrNotFound
 	}
 	return nil
+}
+
+// UpdatePrice sets the product price, scoped to a given status so that only
+// on-sale products can be repriced.
+func (r *ProductRepository) UpdatePrice(ctx context.Context, id uint, price float64, status string) error {
+	q := db(ctx, r.db).Model(&model.Product{}).Where("id = ?", id)
+	if status != "" {
+		q = q.Where("status = ?", status)
+	}
+	res := q.Update("price", price)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return util.ErrNotFound
+	}
+	return nil
+}
+
+// FindByIDs returns products by ids in a single query.
+func (r *ProductRepository) FindByIDs(ctx context.Context, ids []uint) ([]model.Product, error) {
+	var items []model.Product
+	if len(ids) == 0 {
+		return items, nil
+	}
+	err := db(ctx, r.db).Where("id IN ?", ids).Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 // Count returns the total product count.

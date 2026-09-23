@@ -35,9 +35,22 @@ func (f *fakeProductRepo) FindByID(_ context.Context, id uint) (*model.Product, 
 	return nil, util.ErrNotFound
 }
 
-func (f *fakeProductRepo) List(_ context.Context, category, campus, keyword, status string, page, pageSize int) ([]model.Product, int64, error) {
+func (f *fakeProductRepo) FindByIDs(_ context.Context, ids []uint) ([]model.Product, error) {
+	out := make([]model.Product, 0, len(ids))
+	for _, id := range ids {
+		if p, ok := f.products[id]; ok {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeProductRepo) List(_ context.Context, sellerID uint, category, campus, keyword, status string, page, pageSize int) ([]model.Product, int64, error) {
 	var out []model.Product
 	for _, p := range f.products {
+		if sellerID > 0 && p.SellerID != sellerID {
+			continue
+		}
 		if category != "" && p.Category != category {
 			continue
 		}
@@ -61,10 +74,26 @@ func (f *fakeProductRepo) UpdateStatus(_ context.Context, id uint, status string
 	return nil
 }
 
+func (f *fakeProductRepo) UpdatePrice(_ context.Context, id uint, price float64, status string) error {
+	p, err := f.FindByID(context.Background(), id)
+	if err != nil {
+		return err
+	}
+	if status != "" && p.Status != status {
+		return util.ErrNotFound
+	}
+	f.products[id].Price = price
+	return nil
+}
+
 func (f *fakeProductRepo) Count(context.Context) (int64, error) { return int64(len(f.products)), nil }
 
+func newTestProductService(repo *fakeProductRepo) *ProductService {
+	return NewProductService(repo, newFakeFavoriteStore(), slog.Default())
+}
+
 func TestProductServiceCreate(t *testing.T) {
-	svc := NewProductService(newFakeProductRepo(), slog.Default())
+	svc := newTestProductService(newFakeProductRepo())
 	tests := []struct {
 		name     string
 		category string
@@ -90,7 +119,7 @@ func TestProductServiceCreate(t *testing.T) {
 
 func TestProductServiceRemoveOwnership(t *testing.T) {
 	repo := newFakeProductRepo()
-	svc := NewProductService(repo, slog.Default())
+	svc := newTestProductService(repo)
 	created, _ := svc.Create(context.Background(), 1, &dto.CreateProductRequest{Title: "我的书", Price: 10, Category: constants.ProductCategoryBooks, Condition: "全新", Campus: "东校区", TradeLocation: "东门"})
 	if _, err := svc.Remove(context.Background(), 99, created.ID); err == nil {
 		t.Fatalf("expected forbidden error for non-owner")

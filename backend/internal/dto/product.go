@@ -15,6 +15,7 @@ type CreateProductRequest struct {
 // ListProductQuery adds filters to pagination.
 type ListProductQuery struct {
 	PageQuery
+	SellerID uint   `form:"seller_id"`
 	Category string `form:"category"`
 	Campus   string `form:"campus"`
 	Keyword  string `form:"keyword"`

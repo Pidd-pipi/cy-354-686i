@@ -12,6 +12,11 @@ const (
 	LogProductPublishFailed        = "product publish failed: seller=%d title=%s error=%v"
 	LogProductSoldSuccess          = "product sold success: product_id=%d status=sold"
 	LogProductRemoveSuccess        = "product remove success: product_id=%d"
+	LogProductPriceUpdateSuccess   = "product price update success: product_id=%d old=%.2f new=%.2f alerts=%d"
+	LogFavoriteAddSuccess          = "favorite add success: user_id=%d product_id=%d"
+	LogFavoriteRemoveSuccess       = "favorite remove success: user_id=%d product_id=%d"
+	LogPriceAlertReadSuccess       = "price alert read success: user_id=%d alert_id=%d"
+	LogPriceAlertRemoveSuccess     = "price alert remove success: user_id=%d alert_id=%d"
 	LogConversationCreateSuccess   = "conversation create success: conv_id=%d product_id=%d"
 	LogMessageSendSuccess          = "message send success: conv_id=%d sender=%d"
 	LogTradeOrderCreateSuccess     = "trade order create success: order_id=%d product_id=%d"
@@ -35,4 +40,4 @@ const (
 )
 
 // LogTemplateCount guards the "at least 25 templates" requirement.
-const LogTemplateCount = 31
+const LogTemplateCount = 35

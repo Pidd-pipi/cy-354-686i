@@ -2,6 +2,13 @@
 
 一款面向高校学生的校内 C2C 交易平台，覆盖闲置物品发布、价格协商私信、交易达成确认、信誉评分举报、毕业季专场与书籍交换等场景。
 
+主要功能：
+
+- 商品广场浏览/筛选、商品卡片展示收藏人数，登录学生可一键收藏在售商品（重复点击幂等，只保留一条）
+- 卖家下架或商品售出后，收藏仍保留在个人中心，仅标记为「不可购买」且不再产生提醒
+- 卖家对在售商品调价时，仅当新价低于原价才为每位收藏者生成包含原价与新价的降价提醒；价格未降或商品已不在售时不生成
+- 个人中心集中展示「我的收藏」与「降价提醒」（未读角标同步到顶部导航），并支持卖家对在售商品调价/下架；购买、私信、订单流程不变
+
 ## 快速启动（Docker Compose 一键部署）
 
 ```bash
@@ -137,7 +144,9 @@ cy-354/
 - 响应格式：`{ "code": 0, "message": "ok", "data": ... }`，错误码见 `backend/internal/constants/error_codes.go`。
 - 核心接口：
   - `POST /api/v1/users/register`、`POST /api/v1/users/login`、`GET/PUT /api/v1/users/me`
-  - `GET/POST /api/v1/products`、`GET/DELETE /api/v1/products/:id`、`GET /api/v1/products/graduation`
+  - `GET/POST /api/v1/products`、`GET/DELETE /api/v1/products/:id`、`GET /api/v1/products/graduation`、`PUT /api/v1/products/:id/price`（卖家调价，降价自动通知收藏者）
+  - `POST/DELETE /api/v1/products/:id/favorites`（收藏/取消收藏，重复收藏只保留一条）、`GET /api/v1/me/favorites`、`GET /api/v1/me/favorite-ids`
+  - `GET /api/v1/me/price-alerts`、`PUT /api/v1/me/price-alerts/:id/read`、`DELETE /api/v1/me/price-alerts/:id`（降价提醒：含原价与新价）
   - `POST /api/v1/conversations`、`GET /api/v1/conversations/me`、`GET/POST /api/v1/conversations/:id/messages`
   - `POST /api/v1/trade-orders`、`GET /api/v1/trade-orders/me`、`POST /api/v1/trade-orders/:id/buyer-confirm|seller-confirm|cancel`
   - `POST /api/v1/reviews`、`GET /api/v1/reviews/me`
@@ -159,7 +168,15 @@ cy-354/
 | GET | `/api/v1/products/graduation` | 毕业季专场列表 | 无 |
 | GET | `/api/v1/products/:id` | 商品详情 | 无 |
 | POST | `/api/v1/products` | 发布商品 | 登录 |
-| DELETE | `/api/v1/products/:id` | 下架自己的商品 | 登录 |
+| DELETE | `/api/v1/products/:id` | 下架自己的商品（收藏保留，标记不可购买，不再提醒） | 登录 |
+| PUT | `/api/v1/products/:id/price` | 卖家调整在售商品价格；仅新价低于原价时给收藏者生成含原价/新价的提醒 | 登录（卖家） |
+| POST | `/api/v1/products/:id/favorites` | 收藏在售商品（幂等，重复点击只有一条） | 登录 |
+| DELETE | `/api/v1/products/:id/favorites` | 取消收藏 | 登录 |
+| GET | `/api/v1/me/favorites` | 我的收藏（含已下架/已售出，标 `purchasable=false` 不可购买） | 登录 |
+| GET | `/api/v1/me/favorite-ids` | 我收藏的商品 ID 列表（卡片心形回显） | 登录 |
+| GET | `/api/v1/me/price-alerts` | 我的降价提醒（含 `old_price`/`new_price`） | 登录 |
+| PUT | `/api/v1/me/price-alerts/:id/read` | 提醒标为已读 | 登录（本人） |
+| DELETE | `/api/v1/me/price-alerts/:id` | 删除一条提醒 | 登录（本人） |
 | POST | `/api/v1/conversations` | 发起/复用私信会话 | 登录 |
 | GET | `/api/v1/conversations/me` | 我的会话列表 | 登录 |
 | GET | `/api/v1/conversations/:id/messages` | 会话消息记录 | 登录 |

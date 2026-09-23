@@ -4,6 +4,7 @@ import type { PageResult, Product } from '../types'
 export interface ProductQuery {
   page?: number
   page_size?: number
+  seller_id?: number
   category?: string
   campus?: string
   keyword?: string
@@ -24,6 +25,10 @@ export function createProduct(data: Partial<Product>) {
 
 export function removeProduct(id: number) {
   return request.delete<never, { code: number; message: string; data: Product }>(`/products/${id}`)
+}
+
+export function updateProductPrice(id: number, price: number) {
+  return request.put<never, { code: number; message: string; data: Product }>(`/products/${id}/price`, { price })
 }
 
 export function listGraduation() {

@@ -16,4 +16,7 @@ type Product struct {
 	Images        string    `gorm:"type:text" json:"images"`
 	Status        string    `gorm:"size:16;index;not null;default:on_sale" json:"status"`
 	CreatedAt     time.Time `json:"created_at"`
+
+	// FavoriteCount is populated by the service for card display and is not stored.
+	FavoriteCount int64 `gorm:"-" json:"favorite_count"`
 }
